@@ -1,2 +1,3 @@
-# vole_genome_analysis
-Material for the analysis of Microtus whole genomes
+# Vole genome analysis
+
+This repository contains material for the analysis of Microtus whole genomes.
