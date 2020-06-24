@@ -166,32 +166,6 @@ getRND <- function(data, outgroup = 9) {
 }
 
 
-
-cmyk <- function(C,M,Y,K) {
-  
-  C <- C / 100.0
-  M <- M / 100.0
-  Y <- Y / 100.0
-  K <- K / 100.0
-  
-  n.c <- (C * (1-K) + K)
-  n.m <- (M * (1-K) + K)  
-  n.y <- (Y * (1-K) + K)
-  
-  r.col <- ceiling(255 * (1-n.c))
-  g.col <- ceiling(255 * (1-n.m))
-  b.col <- ceiling(255 * (1-n.y))
-  
-  x <- col2rgb(sprintf("#%02s%02s%02s",
-                       as.hexmode(r.col), 
-                       as.hexmode(g.col), 
-                       as.hexmode(b.col)))
-  
-  return(rgb(t(x)/255))
-}
-
-
-
 plotOut <- function(y, ylim = c(0,1), scale = 0.7, clust = 200, quant = 0.99,
                     g.nam = TRUE, cx = 0.8, xlab = "", ylab = "") {
   y <- unlist(unname(c(y)))

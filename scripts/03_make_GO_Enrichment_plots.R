@@ -132,6 +132,9 @@ rownames(hts) <- uniq.name
 g.names <- matrix(NA,ncol=length(tab),nrow=length(uniq.name))
 rownames(g.names) <- uniq.name
 
+sizes <- matrix(NA,ncol=length(tab),nrow=length(uniq.name))
+rownames(sizes) <- uniq.name
+
 for(i in 1:12) {
   df[tab[[i]]$description, i] <- paste(tab[[i]]$number_of_genes, signif(tab[[i]]$p_value, 1), sep = "; ")
   pvs[tab[[i]]$description, i] <- tab[[i]]$fdr
@@ -139,13 +142,19 @@ for(i in 1:12) {
   g.names[tab[[i]]$description, i] <- tab[[i]]$preferredNames
 }
 
-x <- g.names[1,]
 
 shared.genes <- apply(g.names, 1, function(x) {
   gn <- unname(do.call(c, sapply(x, strsplit, ",")))
   shared <- table(gn)
   return(c(shared))
 })
+
+tot.g <- tab[[i]]$number_of_genes_in_background
+shar.g <- lengths(shared.genes[tab[[i]]$description])
+uniq.g <- lapply(shared.genes[tab[[i]]$description], function(x) sum(x==1))
+GO.labels <- paste0("(", uniq.g, "|", shar.g, "|", tot.g, ")")
+
+
 shared.genes <- unlist(unname(shared.genes))
 
 shared.genes <- shared.genes[!duplicated(names(shared.genes))]
@@ -169,15 +178,10 @@ rownames(div.quantiles) <- uniq.name
 for(i in 1:12) div.quantiles[names(tab[[i]]), i] <- tab[[i]]
 
 # 
-# i <- 1
-# tab[[1]]
-# df
-### TO GET: 
-# total genes
-# total unique significant genes
-# total shared significant genes
 
 
+library(Hmisc)
+rownames(df) <- capitalize(paste(rownames(df), GO.labels))
 
 df2 <- df[unname(go.size >= 5 & go.size < 1500), ]
 df2[!is.na(df2)] <- 1
@@ -204,11 +208,11 @@ col.sc <- (-log10(pvs) + 20) / max(-log10(pvs) + 20, na.rm = TRUE)
 cx.sc <- 2 * log10(hts + 1) / max(log10(hts + 1), na.rm = TRUE)
 
 ### Make the plot
-pdf(file = paste0(output.dir, stamp, "_GO_Enrichment.pdf"), width = 8.5, height = 8)
+pdf(file = paste0(output.dir, stamp, "_GO_Enrichment.pdf"), width = 9, height = 7)
 
 layout(matrix(c(1,1,1,1,2,3), nrow=2))
 
-par(mar=c(7,20,2,3), oma=c(0,0,1,0), mgp=c(3, 0, 0))
+par(mar=c(7,25,0,3), oma=c(1,1,3,0), mgp=c(3, 1, 0))
 plot(NA, xlim = c(1, ncol(df3) + 2), ylim = c(1, nrow(df3)), bty = "n", xaxt = "n", yaxt = "n", xlab = "", ylab = "")
 segments(1, 1:nrow(df3), 12, 1:nrow(df3), col = rgb(.9,.9,.9))
 segments(1:12, 1, 1:12, nrow(df3), col = rgb(.95,.95,.95))
@@ -225,10 +229,9 @@ for(i in 1:12) {
 axis(1, at = 1:ncol(df3), labels = FALSE, lwd = 0, las = 2, cex.axis = 0.8)
 text(par("usr")[1]+1:ncol(df3), 0, labels = samp.names[-9][ind.ord], srt = 45, pos = 2, xpd = TRUE)
 
-library(Hmisc)
-axis(2, at = 1:nrow(df3), labels = capitalize(rownames(df2)[condi][p.ord]), lwd = 0, las = 2, cex.axis = 0.8)
+axis(2, at = 1:nrow(df3), labels = rownames(df2)[condi][p.ord], lwd = 0, las = 2, cex.axis = 0.8)
 
-Y.le <- round(0.9*max(df3, na.rm = TRUE))
+Y.le <- round(0.95*max(df3, na.rm = TRUE))
 text(c(13.5), 1.1*Y.le, "Legend", font = 2, cex = 0.8)
 points(c(13,14), rep(Y.le, 2), cex = range(cx.sc[!is.na(cx.sc)]))
 text(c(13,14), rep(Y.le, 2), range(hts, na.rm = TRUE), pos = 1, cex = 0.6)
@@ -238,14 +241,19 @@ points(c(13,14), rep(sc.fac*Y.le, 2), col = rgb(0, 0.192, 0.325, range(col.sc[!i
 text(c(13,14), rep(sc.fac*Y.le, 2), round(range(-log10(pvs), na.rm = TRUE), 1), pos = 1, cex = 0.6)
 text(c(13.5), sc.fac*Y.le, expression(-log[10](italic(q))), pos = 3, cex = 0.8)
 
-title("a. Gene Ontology terms enriched in divergent loci", adj = 0., cex.main = 0.9)
+title("a. Gene Ontology terms enriched in divergent loci", adj = 0, cex.main = 0.9, outer = TRUE)
 
-par(mgp=c(3, 1, 0), mar=c(7,5,2,4))
-hist(shared.genes, main = "", xlab = "Number of species", border = FALSE)
-title("b. Occurence of genes in multiple species", adj = 0., cex.main = 0.9)
+par(mar=c(7,4,2,4))
+hist(shared.genes, main = "",cex.axis = 0.9,
+     xlab = "Number of species",  ylab = "Count",
+     border = FALSE)
 
-hist(div.quantiles, main = "", xlab = "Diversity quantile", border = FALSE)
-title("c. Diversity distribution", adj = 0., cex.main = 0.9)
+title("b. Genes occurence in different lineages", adj = 0., cex.main = 0.9)
+
+hist(div.quantiles, main = "",cex.axis = 0.9, 
+     xlab = "Nucleotide diversity quantile", ylab = "Count",
+     border = FALSE)
+title("c. Diversity distribution of divergent genes", adj = 0., cex.main = 0.9)
 
 
 dev.off()
