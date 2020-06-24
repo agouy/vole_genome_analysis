@@ -6,6 +6,7 @@ for(i in 1:12) {
   x[cond] <- NA
   # getGeneList(x, res, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99)
   # getGeneList(x, res, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99)
+  pi.out <- getGeneDiv(rndsps[[i]], res, annot.gr[,], quanti = 0.99, 1)
   
   pi.out <- getGeneDiv(rndsps[[i]], res, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99, 1)
   qt.pi <- colMeans(sapply(pi.out, ">", pis[,i]))
