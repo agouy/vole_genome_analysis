@@ -8,6 +8,11 @@ library(GenomicRanges)
 library(STRINGdb)
 source("./scripts/Resequencing-data-analysis-functions.R")
 
+output.dir <- "./plots"
+if(!dir.exists(output.dir)) dir.create(output.dir)
+stamp <- format(Sys.time(), "/%Y%M%d_%H%M%S")
+
+
 if(run.GO) {
   ### Load annotation
   gene.positions <- read.table("./data/marv_genes_augustus.txt",
@@ -108,7 +113,7 @@ if(run.GO) {
   
 }
 
-fdr.threshold <- 0.1
+fdr.threshold <- 0.05
 tab <- lapply(tab, function(x) x[x$fdr < fdr.threshold, ])
 
 uniq.name <- unique(unlist(lapply(tab, function(x) x[, "description"])))
@@ -134,14 +139,35 @@ for(i in 1:12) {
   g.names[tab[[i]]$description, i] <- tab[[i]]$preferredNames
 }
 
-g.names[1,]
+x <- g.names[1,]
 
-# test <- apply(g.names[1:2,], 1, function(x) {
-#   gn <- do.call(c, sapply(x, strsplit, ","))
-#   shared2 <- tableduplicated(gn)]
-#   shared.all <- 
-#   tot <- length(unique(gn))
-# })
+shared.genes <- apply(g.names, 1, function(x) {
+  gn <- unname(do.call(c, sapply(x, strsplit, ",")))
+  shared <- table(gn)
+  return(c(shared))
+})
+shared.genes <- unlist(unname(shared.genes))
+
+shared.genes <- shared.genes[!duplicated(names(shared.genes))]
+
+uniq.name <- names(shared.genes)
+pis <- res[, grep("pi", colnames(res))]
+tab <- list()
+for(i in 1:12) {
+  x <- rndsps[[i]]
+  x[cond] <- NA
+  # getGeneList(x, res, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99)
+  # getGeneList(x, res, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99)
+  pi.out <- getGeneDiv(rndsps[[i]], res, annot.gr[annot.gr$name %in% uniq.name,], quanti = 0.99, 1)
+  
+  # pi.out <- getGeneDiv(rndsps[[i]], res, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99, 1)
+  qt.pi <- colMeans(sapply(pi.out, ">", pis[,i]))
+  tab[[i]] <- qt.pi[!is.na(qt.pi)]
+}
+div.quantiles <- matrix(NA, ncol=length(tab), nrow=length(uniq.name))
+rownames(div.quantiles) <- uniq.name
+for(i in 1:12) div.quantiles[names(tab[[i]]), i] <- tab[[i]]
+
 # 
 # i <- 1
 # tab[[1]]
@@ -177,8 +203,12 @@ df3 <- df3[, ind.ord]
 col.sc <- (-log10(pvs) + 20) / max(-log10(pvs) + 20, na.rm = TRUE)
 cx.sc <- 2 * log10(hts + 1) / max(log10(hts + 1), na.rm = TRUE)
 
-# visualise results
-par(mfrow=c(1,1), mar=c(7,20,0,0), oma=c(0,0,1,0), mgp=c(3, 0, 0))
+### Make the plot
+pdf(file = paste0(output.dir, stamp, "_GO_Enrichment.pdf"), width = 8.5, height = 8)
+
+layout(matrix(c(1,1,1,1,2,3), nrow=2))
+
+par(mar=c(7,20,2,3), oma=c(0,0,1,0), mgp=c(3, 0, 0))
 plot(NA, xlim = c(1, ncol(df3) + 2), ylim = c(1, nrow(df3)), bty = "n", xaxt = "n", yaxt = "n", xlab = "", ylab = "")
 segments(1, 1:nrow(df3), 12, 1:nrow(df3), col = rgb(.9,.9,.9))
 segments(1:12, 1, 1:12, nrow(df3), col = rgb(.95,.95,.95))
@@ -192,8 +222,11 @@ for(i in 1:12) {
     col = couleurs
   )
 }
-axis(1, at = 1:ncol(df3), labels = samp.names[-9][ind.ord], lwd = 0, las = 2, cex.axis = 0.8)
-axis(2, at = 1:nrow(df3), labels = rownames(df2)[condi][p.ord], lwd = 0, las = 2, cex.axis = 0.7)
+axis(1, at = 1:ncol(df3), labels = FALSE, lwd = 0, las = 2, cex.axis = 0.8)
+text(par("usr")[1]+1:ncol(df3), 0, labels = samp.names[-9][ind.ord], srt = 45, pos = 2, xpd = TRUE)
+
+library(Hmisc)
+axis(2, at = 1:nrow(df3), labels = capitalize(rownames(df2)[condi][p.ord]), lwd = 0, las = 2, cex.axis = 0.8)
 
 Y.le <- round(0.9*max(df3, na.rm = TRUE))
 text(c(13.5), 1.1*Y.le, "Legend", font = 2, cex = 0.8)
@@ -205,8 +238,17 @@ points(c(13,14), rep(sc.fac*Y.le, 2), col = rgb(0, 0.192, 0.325, range(col.sc[!i
 text(c(13,14), rep(sc.fac*Y.le, 2), round(range(-log10(pvs), na.rm = TRUE), 1), pos = 1, cex = 0.6)
 text(c(13.5), sc.fac*Y.le, expression(-log[10](italic(q))), pos = 3, cex = 0.8)
 
-title("Gene Ontology terms enriched in divergent loci", adj = 0.5, cex.main = 0.9, outer = TRUE)
+title("a. Gene Ontology terms enriched in divergent loci", adj = 0., cex.main = 0.9)
 
+par(mgp=c(3, 1, 0), mar=c(7,5,2,4))
+hist(shared.genes, main = "", xlab = "Number of species", border = FALSE)
+title("b. Occurence of genes in multiple species", adj = 0., cex.main = 0.9)
+
+hist(div.quantiles, main = "", xlab = "Diversity quantile", border = FALSE)
+title("c. Diversity distribution", adj = 0., cex.main = 0.9)
+
+
+dev.off()
 
 ### Write results as a CSV table
 
