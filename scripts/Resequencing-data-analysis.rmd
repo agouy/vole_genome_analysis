@@ -1,0 +1,700 @@
+---
+title: "Genome-wide patterns of diversity and divergence in 10 vole species"
+author: "Alexandre Gouy"
+date: "May 17, 2019"
+output:
+  html_document:
+    df_print: paged
+    number_sections: yes
+    theme: lumen
+    toc: yes
+    toc_collapse: no
+    toc_depth: '3'
+    toc_float: yes
+  word_document:
+    reference_docx: style-ref.docx
+    toc: yes
+    toc_depth: '4'
+    # number_sections: yes
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 5, fig.height = 5)
+require(GenomicRanges, quietly = TRUE)
+
+source("C:/PhD/PROJECTS/2017_vole_genome/Resequencing-data-analysis-functions.R")
+
+samp.names <- c("M. arv. F", "M. arv. CH", "M. arv. CZ", "Eugene",
+                "M. agr.", "M. duo.", "M. oec.", "M. bra.", "M. gla.",
+                "M. pen.", "M. cab.", "M. lus.", "M. ros.")
+span.loess <- 0.01
+
+vole.col <- c(rep("#228B22", 4), RColorBrewer::brewer.pal(9, "Set1"))
+
+gene.positions <- read.table(
+  "C:/PhD/PROJECTS/2017_vole_genome/genes-augustus.txt",
+  header = FALSE,
+  sep = "\t",
+  stringsAsFactors = FALSE
+)
+colnames(gene.positions) <- c("sc", "st", "en", "id")
+
+homologs <- read.table(
+  "C:/PhD/PROJECTS/2017_vole_genome/homologs-arv-mus-eval.txt",
+  header = FALSE,
+  sep = "\t",
+  stringsAsFactors = FALSE
+)
+colnames(homologs) <- c("id_arv", "id_mouse", "eval")
+
+homologs <- homologs[order(homologs$eval), ]
+homologs <- homologs[!duplicated(homologs$id_arv), ]
+
+rownames(gene.positions) <- gene.positions$id
+gene.positions$id_mouse <- NA
+gene.positions[homologs$id_arv,]$id_mouse <- homologs$id_mouse
+
+annot <- gene.positions[!is.na(gene.positions$id_mouse),]
+
+win.size <- 0
+annot.gr <- GRanges(
+  seqnames=annot$sc,
+  ranges = IRanges(start=annot$st - win.size, end=annot$en + win.size),
+  id=annot$id_mouse
+)
+
+map.table <- read.table("C:/PhD/PROJECTS/2017_vole_genome/uniprot-to-name.txt", header = TRUE, sep = "\t")
+map.table <- map.table[!duplicated(map.table$From), ]
+rownames(map.table) <- map.table$From
+
+annot.gr$name <- as.character(map.table[annot.gr$id, ]$To)
+
+samp.names <- c("MarvW","MarvI","MarvE","MarvC",
+              "Magr","Mduo","Moec","Mbra","Mgla",
+              "Mpen","Mcab","Mlus","Mlev")
+
+load("C:/PhD/PROJECTS/2017_vole_genome/13V-22sc-Di-Nomiss-GT.rda")
+
+dxys <- res[, grep("dxy", colnames(res))]
+av.dxys <- colMeans(dxys, na.rm = TRUE)
+
+dspec <- list()
+for(i in as.character(1:13)[-9]) {
+  popu <- i
+  combs <- do.call("rbind", strsplit(gsub("dxy.pop", "", names(av.dxys)), ".pop")) 
+  ids <- apply(combs, 1, function(x) {
+    any(x == popu)
+  })
+  dao <- names(which.max(av.dxys[ids]))
+  dab <- names(which.min(av.dxys[ids]))
+  
+  n.dbo <- unlist(strsplit(gsub("dxy.pop", "", c(dao, dab)), ".pop"))
+  n.dbo <- n.dbo[n.dbo != popu]
+  dbo <- c(paste0("dxy.pop", n.dbo[1], ".pop", n.dbo[2]),
+           paste0("dxy.pop", n.dbo[2], ".pop", n.dbo[1]))
+  
+  da <- (dxys[, dab] + dxys[, dao] - dxys[, colnames(dxys) %in% dbo]) / 2
+  dspec[[i]] <- da
+}
+
+names(dspec) <- paste0("dxysp.", names(dspec))
+myod <- dxys[, grep("pop9", colnames(dxys))]
+
+d.av.myo <- rowMeans(myod)
+rndsps <- lapply(dspec, function(x) {x / d.av.myo})
+cond <- d.av.myo <= quantile(d.av.myo, 0.025)
+
+```
+
+
+# Material and methods
+
+## Data
+
+### Samples
+
+```{r}
+knitr::kable(read.table("C:/PhD/PROJECTS/2017_vole_genome/samples.csv", sep=";", header = TRUE))
+```
+
+### Genotype calling and filtering
+
+For each individual, we aligned the reads using the software stampy as it performs better for divergent species. Between 85% (Myodes) and 95% (M. arvalis) of the reads have been aligned to the reference.
+
+We then called the genotypes using GATK UnifiedGenotyper (per-site calling is better than an haplotype-based one for divergent species). We filtered sited by keeping diallelic SNPs, GQ > 30, no missing data, on the 22 largest scaffolds. We took custom depth (DP) filters: we excluded the 1 % tails of depth distributions (see below). If The minimum DP is 5 in case the left 1 % tail of the distribution is lower than 5.
+
+We ended up with around 100M SNPs (26% being private to Myodes glareolus).
+
+```{r}
+
+dd <- read.table("file:///C:/PhD/PROJECTS/2017_vole_genome/scaff_len.txt", sep=",")
+dd <- dd[order(dd$V2, decreasing=TRUE),]
+
+par(mfrow=c(1,1), mar=c(5,6,2,2))
+  barplot(dd$V2[1:22]/1e6, border=F, xlab="Scaffold", ylab = "Scaffold size (Mbp)",names.arg = 1:22, las = 1, cex.names = 1)
+
+
+
+f.names <- list.files("C:/PhD/PROJECTS/2017_vole_genome/vcf-stats", full.names = TRUE)
+f.names <- f.names[grep("\\.stats", f.names)]
+COUL <- vole.col[-4]
+LT <- c(1:3, rep(1, 10))
+
+s.nam <- c("Magr", "MarvI", "MarvE", "MarvW", "Mbra", "Mcab", "Mduo", "Mgla", "Mlus", "Moec", "Mpen", "Mlev")
+par(mfrow=c(1, 1))
+plot(NULL,
+     xlab = "Depth of coverage",
+     ylab = "Percentage of sites",
+     main = "",
+     ylim = c(0, 11),
+     xlim = c(0, 50),
+     bty = "n")
+COUL <- c(COUL[4], COUL[-4])
+for(i in seq_along(f.names)) {
+  nam <- f.names[i]
+  f <- readLines(nam)
+  dp <- f[grep("DP", f)]
+  Q <- do.call("rbind", strsplit(dp, "\t"))
+  Q <- Q[-1:-2, ]
+  class(Q) <- "numeric"
+  
+  DP <- as.data.frame(Q)[, c(3,6,7)]
+  
+  lines(DP[, 1], DP[, 3],
+        col = COUL[i], lty = LT[i], lwd = 2)
+}
+abline(v = c(5), lty = 2)
+legend("topright", s.nam, lwd = 2, col = COUL, lty = LT, cex = 1)
+
+```
+
+## Analysis
+
+We computed nucleotide diversity ($\pi$) for each of the 13 individuals and nucleotide divergence ($d_{\textrm{xy}}$) between all pairs of individuals. Each statistic has been computed along the genome over 50 kb non-overlapping sliding windows.
+
+For divergence, I particularly focused on specific comparisons:
+
+* the average $d_{\textrm{xy}}$ between all pairs of individuals
+* the average $d_{\textrm{xy}}$ between all Microtus individuals vs. Myodes glareolus
+* the average $d_{\textrm{xy}}$ between all Microtus arvalis vs. other Microtus species
+* the average $d_{\textrm{xy}}$ between all Microtus arvalis individuals
+
+# Results
+
+## Nucleotide diversity
+
+### On average
+
+The figure below represents the average nucleotide diversity of each individual. This average is the mean of nucleotide diversity in all windows along the genome.
+
+```{r, fig.width=10, fig.height=10}
+divs <- res[, grep("pi", colnames(res))]
+# boxplot(divs, names=samp.names, ylab = "Pi")
+
+layout(matrix(c(1,2,3,3), ncol=2))
+par(xpd=FALSE)
+par(mar = c(4,4,4,2))
+o <- order(colMeans(divs), decreasing = TRUE)
+barplot(colMeans(divs)[o],names.arg = samp.names[o],
+        col = vole.col[o], horiz = TRUE, las = 1, cex.axis = 0.8,
+        xlab = expression(pi), border = F)
+title("a. Average nucleotide diversity", adj = 0)
+
+# par(mfrow=c(1, 2), mar = c(4,6,4,4))
+plot(density(log10(res$pi.1+1e-5)), col = vole.col[1], lwd = 1, ylim = c(0,2.2),
+     main = "", lty = LT[1], xlim = c(-5.5,-1.5),
+     xlab = expression(log[10](pi + 10^-5)), bty = "L")
+title("b. Nucleotide diversity distributions", adj = 0)
+
+for(i in 2:13) {
+  to.plot <- eval(parse(text=paste0("res$pi.", i)))
+  lines(density(log10(to.plot+1e-5)), col = vole.col[i], lwd = 1, lty = LT[i])
+}
+par(xpd=TRUE)
+legend(-2, 2, samp.names, col = vole.col, lwd = 2, cex = 0.8, lty = LT)
+par(xpd=FALSE)
+
+library(ape)
+library(phytools)
+tr <- c("(((Magr:0.01141853196718355806,(Mcab:0.00619717544689322476,((Mlev:0.00564159289022646369,(((MarvI:0.00080579938995997984,MarvW:0.00091704788677416413):0.00008016459918286242,MarvE:0.00046071954626943529):0.00007892089344394453,MarvC:0.00003895231550176167):0.00019622509705902644):0.00070629286978630349,(Mduo:0.00123345078559128113,Mlus:0.00057414172870830411):0.00575390741986315547):0.00051583951169858881):0.00022339130703778973):0.00039427693461949669,Mpen:0.01179227238297765080):0.00060935775258411139,(Mbra:0.01864500865446174979,Moec:0.01237267957810762355):0.00085379336654465069,Mgla:0.04651547493201733247):0.0;
+")
+tree <- read.tree(text = tr)
+tree <- reroot(tree, node.number = 13, position = max(tree$edge.length)/2)
+par(mar = c(4,1,4,1))
+
+plot(tree, label.offset = .0005)
+axisPhylo(backward = FALSE)
+
+title("c. Maximum likelihood phylogenetic tree", adj = 0)
+title(xlab = "Substitution rate")
+```
+
+
+### Per individual
+
+We can also look at the distributions for each individual of the nucleotide diversity values. NB: -5 corresponds to $\pi = 0$.
+
+```{r, fig.width=5, fig.height=5}
+
+```
+
+
+### Average among all individuals, along the genome
+
+The average diversity among the 13 individuals we have is represented below along the genome.
+
+```{r, fig.width=15, fig.height=8, results="hide"}
+# plotRes(res, rowMeans(divs), "Average diversity", y.lab = "Pi")
+# plotOut(rowMeans(divs),ylim = c(0,0.005), scale = 0.6, quant = 0.99)
+png("C:/PhD/PROJECTS/2017_vole_genome/rndsp1.png", width = 3500, height = 2440, res = 300)
+par(mfrow=c(4,1), mar = c(2,4,2,2))
+plotOut(res$dxy.pop6.pop12, scale = 0.5, ylim = range(res$dxy.pop6.pop12), g.nam = F)
+title("dxy lus vs duo", adj = 0)
+plotOut(res$rnd.pop6.pop12, scale = 0.5, g.nam = F)
+title("RND lus vs duo", adj = 0)
+plotOut(res$dxy.pop11.pop13, scale = 0.5, ylim = range(res$dxy.pop11.pop13), g.nam = F)
+title("dxy ros vs oec", adj = 0)
+plotOut(res$rnd.pop11.pop13, scale = 0.5, g.nam = F)
+title("RND ros vs oec", adj = 0)
+dev.off()
+
+png("C:/PhD/PROJECTS/2017_vole_genome/rndsp2.png", width = 3500, height = 2440, res = 300)
+par(mfrow=c(4,1), mar = c(2,4,2,2))
+plotOut(res$rndsp.1, scale = 0.5)
+title("M. arv. F", adj = 0)
+plotOut(res$rndsp.2, scale = 0.5)
+title("M. arv. CH", adj = 0)
+plotOut(res$rndsp.3, scale = 0.5)
+title("M. arv. CZ", adj = 0)
+plotOut(res$rndsp.4, scale = 0.3)
+title("M. arv. Eugene", adj = 0)
+dev.off()
+
+png("C:/PhD/PROJECTS/2017_vole_genome/rndsp3.png", width = 3500, height = 2440, res = 300)
+par(mfrow=c(4,1), mar = c(2,4,2,2))
+plotOut(res$rndsp.13, scale = 0.5)
+title("M. ros.", adj = 0)
+plotOut(res$rndsp.12, scale = 0.5)
+title("M. lus.", adj = 0)
+plotOut(res$rndsp.6, scale = 0.5)
+title("M. duo.", adj = 0)
+plotOut(res$rndsp.11, scale = 0.5)
+title("M. cab.", adj = 0)
+dev.off()
+
+png("C:/PhD/PROJECTS/2017_vole_genome/rndsp4.png", width = 3500, height = 2440, res = 300)
+par(mfrow=c(4,1), mar = c(2,4,2,2))
+plotOut(res$rndsp.5, scale = 0.5)
+title("M. agr.", adj = 0)
+plotOut(res$rndsp.10, scale = 0.5)
+title("M. pen.", adj = 0)
+plotOut(res$rndsp.7, scale = 0.5)
+title("M. oec.", adj = 0)
+plotOut(res$rndsp.8, scale = 0.5)
+title("M. bra.", adj = 0)
+dev.off()
+
+plotOut(res$pi.9, scale = 0.5, ylim = c(0,0.01), g.nam = F)
+title("M. gla.", adj = 0)
+
+
+```
+
+
+```{r, fig.width=18, fig.height=3.5, echo = FALSE, message = FALSE, results="hide"}
+rndsp <- res[,grep("rndsp", colnames(res))]
+qts <- apply(rndsp, 2, function(x) x > quantile(x, 0.99, na.rm = TRUE))
+image(qts[rowSums(qts)>-1 & !is.na(rowSums(qts)),], col = c(0,1), bty = "n", xaxt = "n", yaxt = "n")
+axis(2, at = seq(0, 1, length.out = 12), labels = samp.names[-9], las = 2)
+```
+
+### Per individual, along the genome
+
+We can also look at our samples separately.
+
+```{r, fig.width=7, fig.height=25, echo = FALSE, message = FALSE, results="hide"}
+par(mfrow=c(4, 1), mar = c(2,4,2,4))
+
+plotRes(res, res$pi.1, samp.names[1], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+legend("topright", lty=c(1,2,1), lwd=c(2,1,1), col=c("firebrick", "firebrick", "steelblue"),
+       c("Smoothed values", "1% quantile", "Pi = 0.001"))
+plotRes(res, res$pi.2, samp.names[2], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+plotRes(res, res$pi.3, samp.names[3], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+plotRes(res, res$pi.4, samp.names[4], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+
+
+plotRes(res, res$pi.5, samp.names[5], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+plotRes(res, res$pi.6, samp.names[6], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+plotRes(res, res$pi.7, samp.names[7], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+plotRes(res, res$pi.8, samp.names[8], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+
+
+plotRes(res, res$pi.9, samp.names[9], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+plotRes(res, res$pi.10, samp.names[10], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+plotRes(res, res$pi.11, samp.names[11], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+plotRes(res, res$pi.12, samp.names[12], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+plotRes(res, res$pi.13, samp.names[13], y.lab = "Pi")
+abline(h=0.001, col = "steelblue")
+```
+
+### Correlation between diversities
+
+Sometimes, nucleotide diversity patterns seem to be correlated between individuals. We observe regions of both low and high diversity in all individuals. To roughly quantify the similarity between patterns of diversity, I computed Spearman's correlation coefficient between all pairs of individuals.
+
+Diversity patterns are indeed correlated with coefficients ranging from 0.11 (M. ros. vs. Eugene, likely because of the low diversity and long runs of homozygosity of Eugene) to 0.55 (between, unsurprisingly, M. duo and M. lus.).
+
+```{r}
+cor.mat <- cor(divs, method = "spearman")
+rownames(cor.mat) <- colnames(cor.mat) <- samp.names
+# cor.mat[lower.tri(cor.mat)] <- NA
+knitr::kable(cor.mat, digits = 2, row.names = TRUE)
+# range(cor.mat[cor.mat<1], na.rm = TRUE)
+```
+
+### Functional analysis of regions of interest
+
+#### High diversity in Myodes
+
+A zoo on the region of very high nucleotide diversity in Myode is represented below. The gene content of this region is also reported.
+
+```{r, fig.width=7, fig.height=4}
+matplot(res$pos.cumul, res$pi.9, type="p", bty = "n", pch = 16, cex = 0.8,
+        lty = 1, xlab  ="Position (Mb)", ylab  ="pi", xlim = c(720, 750))
+title("Zoom on the region of high diversity in Myodes", adj = 0)
+
+# Myodes = 9th sample
+gL <- getGeneList(res$pi.9, res, annot.gr, 0.995)
+cat(sort(gL), sep=", ")
+```
+
+Regions of extremely high diversity in Myodes carry a large number (24) of olfactory receptors. GO enrichment analysis of this gene list reveals a very significant enrichment (5.75 times more than expected) in the "sensory perception of smell term" ($\textrm{FDR} < 1.10^{-9}$). No other biological function is enriched.
+
+#### High diversity in all voles except Eugene
+
+We can perform the same analysis for the region that has the highest diversity in all voles but Eugene (beginning of the 6th scaffold starting from the end). Interestingly, this region is found on a scaffold with no diversity at all in Eugene.
+
+```{r, fig.width=7, fig.height=4}
+matplot(res$pos.cumul, divs, col=vole.col, type="p", bty = "n", pch = 16, cex = 0.8,
+        lty = 1, xlab  ="Position (Mb)", ylab  ="pi", xlim = c(1736, 1740))
+title("Zoom on the region of high diversity in all voles", adj = 0)
+
+# Myodes = 9th sample
+gL <- getGeneList(res$pi.1, res, annot.gr, 0.999)
+cat(sort(gL), sep=", ")
+# cat(sort(gL), sep="\n")
+legend("topright", samp.names, col = vole.col, cex = 0.7, pch=16)
+
+```
+
+When lookin at the gene content of this region, we observe again an enrichement in the GO term "sensory perception of smell". Even though we have less genes this time (smaller region containing 5 olfactory receptors), enrichment is still significant (FDR = 0.01). I did not look yet at the function of other genes.
+
+
+## Nucleotide divergence
+
+### Average and tree
+
+We can first have a look at the species tree based on average nucleotide divergence along the genome. As expected, sister species such as M. arv. and M. ros., and M. lus. and M. duo. cluster together. Myodes glareolus is the most divergent one.
+
+```{r, results="hide"}
+dxys <- res[, grep("dxy", colnames(res))]
+meanDXY <- colMeans(dxys)
+# matrix
+dist.mat <- matrix(NA, nrow=length(samp.names), ncol=length(samp.names))
+
+ids <- strsplit(gsub("dxy.pop", "", names(meanDXY)), ".pop")
+for(i in seq_along(meanDXY)) {
+  dist.mat[as.numeric(ids[[i]][1]), as.numeric(ids[[i]][2])] <- meanDXY[i]
+  dist.mat[as.numeric(ids[[i]][2]), as.numeric(ids[[i]][1])] <- meanDXY[i]
+}
+
+diag(dist.mat) <- 0
+hc <- hclust(as.dist(dist.mat), method = "average") # "average" <-> UPGMA
+# tree
+plot(hc, labels = samp.names,
+     xlab = "", sub = "",
+     ylab = expression(d[xy]),
+     main = "Nucleotide divergence based phylogeny") 
+
+```
+
+The average divergence between all possible pairs of species is represented below. There is a lot of variation along the genome, with some regions of extremely low divergence (this regions are often repeat-rich).
+
+```{r, fig.width=10, fig.height=4, results="hide"}
+# average GW
+av.dxy <- rowMeans(dxys)
+plotRes(res, av.dxy, titre = "Average divergence between all pairs of individuals", y.lab = "dxy")
+# abline(h=0.001, col="steelblue")
+```
+
+
+### A few pairs as examples
+
+#### Myodes glareolus vs. Microtus
+
+```{r, fig.width=10, fig.height=4, results="hide"}
+col.ids <- c(
+  grep(pattern = "dxy.pop9.pop[0-9]{1,2}", colnames(res)),
+  grep(pattern = "dxy.pop[0-9]{1,2}.pop[9]", colnames(res))
+)
+
+plotRes(res, rowMeans(res[, col.ids]), titre = "Myodes vs. Microtus", y.lab = "dxy")
+```
+
+#### Within Arvalis
+
+```{r, fig.width=10, fig.height=4, results="hide"}
+col.ids <- c(
+  grep(pattern = "dxy.pop[1-4].pop[1-4]$", colnames(res))
+)
+colnames(res)[col.ids]
+plotRes(res, rowMeans(res[, col.ids]), titre = "M. arvalis vs. M. arvalis", y.lab = "dxy")
+
+```
+
+#### Two random pairs of species
+
+Different average values but extremely similar pattern even when taking "independent" species pairs.
+
+```{r, fig.width=10, fig.height=7, results="hide"}
+par(mfrow=c(2, 1))
+# Lu vs. Du
+plotRes(res, res$dxy.pop1.pop12, titre = "M. arvalis vs. M. duodecimcostatus", y.lab = "dxy")
+
+# Agrestis vs. Oeconomus
+plotRes(res, res$dxy.pop5.pop7, titre = "M. agrestis vs. M. oeconomus", y.lab = "dxy")
+```
+
+
+### Correlation between patterns of divergence
+
+```{r}
+# cor(dxys, method = "spearman")
+```
+
+Patterns of nucleotide divergence seem extremely correlated. Broad patterns are the same whichever species comparison we consider. Spearman's correlation coefficient computed for all pairs of dxy values range from 0.75 to 0.96. On average, 0.9. This suggests that most variance in patterns of nucleotide divergence is explained by intrinsic properties of the genome (e.g. reecombination or mutation rate, etc.) rather than differential adaptation or the evolution of reproductive isolation. However, as we still observe different peaks in different comparisons, this suggests that signals linked to species divergence could still be discovered.
+
+### Functional analysis of regions of high divergence
+
+```{r}
+getGeneList(rowMeans(res[, col.ids]), res, annot.gr, quanti = 0.99)
+getGeneList(av.dxy, res, annot.gr, quanti = 0.99)
+```
+
+
+We then looked at the genes present in the most divergent regions of the genomes.
+
+GO enrichment with top 1% divergent genes, Fisher's exact test, FDR < 0.05, three main function enriched:
+
+* Perception of smell (Olfactory receptors)
+* neurogenesis, particularly neuron differentiation in the olfactory bulb (ROBO1, ROBO2, SLIT and Semaphorin genes)
+* Learning and higher neurological processes (FOXP2, glutamate receptors, ...)
+
+TO PLOT: GO graph with all significant GO terms and three main branches.
+
+
+### Divergence based tree in outlier regions
+
+```{r, fig.width=8, fig.height=6}
+# top 1% dxy
+out.ids <- which(av.dxy > quantile(av.dxy, 0.99))
+
+dist.av <- as.dist(get.dist.mat(colMeans(dxys)))
+d1 <- hclust(dist.av)
+
+cors <- array(NA, length(out.ids))
+for(i in seq_along(out.ids)) {
+  d2 <- hclust(as.dist(get.dist.mat(unlist(dxys[out.ids[i],]))))
+  cors[i] <- cor(dist.av, cophenetic(d2))
+}
+
+
+par(mfrow=c(2, 3))
+hist(1 - cors, main = "Distance between local and average trees",
+     xlab = "Cophenetic distance")
+
+# example of a tree with LOW cophenetic distance from the average dxy values
+plot.dxy.tree(unlist(dxys[out.ids[cors > 0.98][1], ]), samp.names,
+              title = "Local tree with LOW distance")
+plot.dxy.tree(unlist(dxys[out.ids[cors > 0.98][2], ]), samp.names,
+              title = "Local tree with LOW distance")
+
+# example of a tree with HIGH cophenetic distance from the average dxy values
+plot.dxy.tree(unlist(dxys[out.ids[cors < 0.89][1], ]), samp.names,
+              title = "Local tree with HIGH distance")
+plot.dxy.tree(unlist(dxys[out.ids[cors < 0.89][2], ]), samp.names,
+              title = "Local tree with HIGH distance")
+plot.dxy.tree(unlist(dxys[out.ids[cors < 0.89][3], ]), samp.names,
+              title = "Local tree with HIGH distance")
+
+```
+
+Same when scaling 
+
+## Divergence Da
+
+```{r, fig.width=7, fig.height=10}
+## get Da
+rnd <- getRND(res, outgroup = 9)
+
+par(mfrow=c(2, 1))
+plotRes(data.fr = res, var.y = av.dxy, y.lab = "dxy", titre="")
+plotRes(data.fr = res, var.y = rowMeans(rnd), y.lab = "RND", titre="")
+
+col.ids <- c(
+  grep(pattern = "dxy.pop[1-4].pop[1-4]$", colnames(getRND(res, 9)))
+)
+rnd.arv <- rowMeans(rnd[, colnames(rnd)[col.ids]])
+rnd.all <- rowMeans(rnd)
+
+plotRes(data.fr = res, var.y = rnd.arv, y.lab = "RND arvalis", titre="", ylim = c(0,1.2))
+plotRes(data.fr = res, var.y = rnd[,11], y.lab = "RND arv vs. ros", titre="", ylim = c(0,1.2))
+
+
+### Mlu vs Mdu
+plotRes(data.fr = res, var.y = (res[, grep("dxy", colnames(res))][, 50]), y.lab = "dxy lu v du", titre="")
+plotRes(data.fr = res, var.y = (res[, grep("rnd", colnames(res))][, 50]), y.lab = "RND lu v du", titre="", ylim = c(0,2))
+plotRes(data.fr = res, var.y = res$pi.6, y.lab = "duo", titre="")
+plotRes(data.fr = res, var.y = res$pi.1, y.lab = "lus", titre="")
+
+# plotRes(data.fr = res, var.y = rnd[, 60], y.lab = "RND", titre="", ylim = c(0,2))
+```
+
+# Gene ontology analysis
+
+```{r, fig.width = 7, fig.height = 7}
+
+
+g.rv <- unique(getGeneList(1-res$rv, res, annot.gr, quanti = 0.99))
+
+
+g.arv <- unique(getGeneList(rnd.arv, res, annot.gr, quanti = 0.99))
+g.lu.du <- unique(getGeneList(rnd[, 50], res, annot.gr, quanti = 0.99))
+g.all <- unique(getGeneList(rnd.all, res, annot.gr, quanti = 0.99))
+g.arv.ros <- unique(getGeneList(rnd[, 11], res, annot.gr, quanti = 0.99))
+
+cat(g.arv, sep = "\n")
+cat(g.lu.du, sep = "\n")
+cat(g.all, sep = "\n")
+cat(g.arv.ros, sep = "\n")
+cat(g.rv, sep = "\n")
+
+require(venn)
+listInput <- list(Arvalis = g.arv, Lus.vs.Duo = g.lu.du,
+                  Average.All = g.all, Arv.vs.Ros = g.arv.ros)
+listInput <- list(
+  Arvalis = g.arv[c(grep("Olf", g.arv), grep("Vmn", g.arv))],
+  Lus.vs.Duo = g.lu.du[c(grep("Olf", g.lu.du), grep("Vmn", g.lu.du))],
+  Average.All = g.all[c(grep("Olf", g.all), grep("Vmn", g.all))],
+  Arv.vs.Ros = g.arv.ros[c(grep("Olf", g.arv.ros), grep("Vmn", g.arv.ros))])
+
+venn(
+  listInput,
+  ellipse = TRUE,
+  opacity = 0.6,
+  ilab = TRUE,
+  zcolor = c("#99b333", "#d94d99", "#06004f", "#ffe600"),
+  lty = 0,
+  cexil = 1.7,
+  cexsn = 1.7
+)
+
+require(org.Mm.eg.db)
+require(clusterProfiler)
+
+# genes "private" to arvalis
+sig.g <- g.arv.ros
+# [(!g.arv %in% g.lu.du & !g.arv %in% g.all & !g.arv %in% g.arv.ros)]
+
+ego <- enrichGO(
+  gene = sig.g, universe = unique(annot.gr$name),
+  OrgDb = org.Mm.eg.db, keyType = "SYMBOL", ont = "BP",
+  pAdjustMethod = "BH",
+  # minGSSize = 3,
+  # maxGSSize = 100,
+  pvalueCutoff  = 0.05
+)
+
+to.disp <- as.data.frame(ego)
+knitr::kable(head(to.disp[order(to.disp$Count/length(sig.g), decreasing = TRUE), ], 20))
+
+heatplot(ego, showCategory = 30)
+```
+
+```{r}
+
+# genes "private" to lu vs. du
+cat(g.lu.du[(!g.lu.du %in% g.arv & !g.lu.du %in% g.all & !g.lu.du %in% g.arv.ros)], sep="\n")
+
+# genes common to all comparisons
+cat(g.arv[(g.arv %in% g.lu.du & g.arv %in% g.all & g.arv %in% g.arv.ros)], sep="\n")
+
+cat(g.lu.du[!g.lu.du %in% g.all], sep="\n")
+```
+
+
+# Elements of discussion
+
+## Predominant role of olfactory transduction
+
+Summary of the results
+
+## How does olfaction work?
+
+* Olfactory neurons and olfactory epithelium
+* Vomeronasal Organ
+* Main and Accessory Olfactory Bulbs (MOB and AOB)
+* Everything goes to the forebrain
+
+## Most divergent genes are involved in different stages of olfactory transduction
+
+* Receptors
+* Neurogenesis and OB
+* Learning
+
+## Adult neurogenesis and olfaction
+
+*	As far as we know, adult neurogenesis happens only in the olfactory bulb (OB) and the hypothalamus.
+*	Olfactory bulb (OB) adult neurogenesis plays a role in mating behaviour. In mice, pheromones released by the dominant male can increase olfactory and hippocampal neurogenesis in females (Mak et al. 2007). This cell proliferation is necessary for female preference (Mak et al. 2007).
+*	Bulbar neurogenesis plays a role in pregnancy and lactation in the mouse. Shingo et al. 2003. Link with prolactin.
+*	Olfactory learning: feedback: exposition to odorants leads to more neurogenesis
+*	60 days olfactory neurons
+
+## Interneurons in the OB
+
+*	Interesting and specific candidate genes in our case are ROBO1, ROBO2 and SLIT2, and Semaphorins.
+* Those genes are involved in the guidance of axons of interneurons in the olfactory bulb
+* Interneurons are...
+* Guidance because of neurogenesis...
+* Neurogenesis because of...
+
+## Why olfaction?
+
+Two main non exclusive hypotheses:
+
+* Mate recognition: If two species overlap
+
+* Ecological reasons: voles have different habitats, food sources. Olfaction could be involved in foraging behaviour for example.
+
+* Interaction between both is possible. Sexual selection and habitat adaptation in speciation can interact. Depends on the stage of speciation also. Is it reinforcement after a secondary contact? Early selection? It is interesting to think about the role of male-male competition. (SMK gene expansion signals, even if difficult to trust, might be indicate the presence of male-male competition in Microtus arvalis).
+
+
+## Useful references about olfaction
+
+* Chamero, P., Leinders-Zufall, T., & Zufall, F. (2012). From genes to social communication: molecular sensing by the vomeronasal organ. Trends in neurosciences, 35(10), 597-606.
+* Dulac, C., & Wagner, S. (2006). Genetic analysis of brain circuits underlying pheromone signaling. Annu. Rev. Genet., 40, 449-467.
+* Isogai, Y., Si, S., Pont-Lezica, L., Tan, T., Kapoor, V., Murthy, V. N., & Dulac, C. (2011). Molecular organization of vomeronasal chemoreception. Nature, 478(7368), 241.
+* Kimchi, T., Xu, J., & Dulac, C. (2007). A functional circuit underlying male sexual behaviour in the female mouse brain. Nature, 448(7157), 1009.

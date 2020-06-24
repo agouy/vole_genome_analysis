@@ -85,20 +85,20 @@ dev.off()
 
 # 
 # 
-# par(mfrow=c(2,2))
-# plot(tree, label.offset = .005,type="fan",
-#      show.node.label = F,
-#      align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
-# plot(tree, label.offset = .005,type="radial",
-#      show.node.label = F,
-#      align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
-# plot(tree, label.offset = .005,type="phylogram",
-#      show.node.label = F,
-#      align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
-# plot(tree, label.offset = .005,type="unrooted",
-#      show.node.label = F,
-#      align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
-# 
+par(mfrow=c(2,2))
+plot(tree, label.offset = .005,type="fan",
+     show.node.label = F,
+     align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
+plot(tree, label.offset = .005,type="radial",
+     show.node.label = F,
+     align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
+plot(tree, label.offset = .005,type="phylogram",
+     show.node.label = F,
+     align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
+plot(tree, label.offset = .005,type="unrooted",
+     show.node.label = F,
+     align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
+
 # 
 # 
 # ### PSMC plot
