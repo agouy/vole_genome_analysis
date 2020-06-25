@@ -1,6 +1,6 @@
 # MAke figure 2
 load("./data/13V-22sc-Di-Nomiss-GT.rda")
-source("./scripts/Resequencing-data-analysis-functions.R")
+source("./scripts/00_utils.R")
 
 output.dir <- "./plots"
 if(!dir.exists(output.dir)) dir.create(output.dir)

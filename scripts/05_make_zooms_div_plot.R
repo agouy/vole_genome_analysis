@@ -1,6 +1,6 @@
 ## new figure
 
-source("./scripts/Resequencing-data-analysis-functions.R")
+source("./scripts/00_utils.R")
 require(GenomicRanges)
 
 load("./data/annotation.rda")
