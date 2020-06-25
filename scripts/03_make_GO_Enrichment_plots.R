@@ -6,7 +6,7 @@ getStringDB <- FALSE
 
 library(GenomicRanges)
 library(STRINGdb)
-source("./scripts/Resequencing-data-analysis-functions.R")
+source("./scripts/00_utils.R")
 
 output.dir <- "./plots"
 if(!dir.exists(output.dir)) dir.create(output.dir)

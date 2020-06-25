@@ -24,9 +24,9 @@ annot <- gene.positions[!is.na(gene.positions$id_mouse),]
 
 win.size <- 0
 annot.gr <- GRanges(
-  seqnames=annot$sc,
-  ranges = IRanges(start=annot$st - win.size, end=annot$en + win.size),
-  id=annot$id_mouse
+  seqnames = annot$sc,
+  ranges = IRanges(start = annot$st - win.size, end = annot$en + win.size),
+  id = annot$id_mouse
 )
 
 map.table <- read.table("./data/uniprot-to-name.txt", header = TRUE, sep = "\t")
@@ -42,7 +42,7 @@ av.dxys <- colMeans(dxys, na.rm = TRUE)
 
 myod <- dxys[, grep("pop9", colnames(dxys))]
 
-samp.names <- c("M. arvalis (W)","M. arvalis (I)","M. arvalis (E)","M. arvalis (C)",
+samp.names <- c("M. arvalis W","M. arvalis I","M. arvalis E","M. arvalis C",
                 "M. agrestis","M. duodecimcostatus","M. oeconomus","M. brandti","M. glareolus",
                 "M. pennsylvanicus","M. cabrerae","M. lusitanicus","M. levis")
 
