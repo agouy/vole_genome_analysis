@@ -80,10 +80,10 @@ plotDivDiv <- function(stats = stats, scaffold = "ScOZjSD_3553", center = 305333
 }
 
 
-# output.dir <- "./plots"
-# if(!dir.exists(output.dir)) dir.create(output.dir)
-# stamp <- format(Sys.time(), "/%Y%m%d_%H%M%S")
-# 
+output.dir <- "./plots"
+if(!dir.exists(output.dir)) dir.create(output.dir)
+stamp <- format(Sys.time(), "/%Y%m%d_%H%M%S")
+
 pdf(file = paste0(output.dir, stamp, "_Zooms.pdf"), width = 10, height = 5)
 layout(matrix(1:6, nrow = 2))
 
