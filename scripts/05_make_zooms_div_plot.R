@@ -84,11 +84,11 @@ output.dir <- "./plots"
 if(!dir.exists(output.dir)) dir.create(output.dir)
 stamp <- format(Sys.time(), "/%Y%m%d_%H%M%S")
 
-pdf(file = paste0(output.dir, stamp, "_Zooms.pdf"), width = 10, height = 5)
+pdf(file = paste0(output.dir, stamp, "_Zooms_v2.pdf"), width = 10, height = 5)
 layout(matrix(1:6, nrow = 2))
 
 species <- c(1:4, 11)
-couls <- c("#228B22","chartreuse1","chartreuse2","lightgreen","#984EA3")
+# couls <- c("#228B22","chartreuse1","chartreuse2","lightgreen","#984EA3")
 couls <- RColorBrewer::brewer.pal(5, "Paired")
 columns <- c("sc", "st", "en", paste0("pi.", species), paste0("rndsp.", species))
 
@@ -96,11 +96,12 @@ annot.gr[annot.gr$name%in%c("H2-Eb1","H2-Ea"), ]
 annot.gr[annot.gr$name%in%c("Olfr140"), ]
 annot.gr[annot.gr$name %in% c("Cd200r1l"), ]
 
-plotDivDiv(stats[,columns], leg = TRUE,
-           scaffold = "ScOZjSD_2657", center = 17640251, main = "a. Histocompatibility-2 Cluster")
+# Order: same as main text
+plotDivDiv(stats[, columns], leg = TRUE,
+           scaffold = "ScOZjSD_3553", center = 166246853, main = "a. Olfr140 Region")
 
-plotDivDiv(stats[, columns],
-           scaffold = "ScOZjSD_3553", center = 166246853, main = "b. OR Cluster")
+plotDivDiv(stats[,columns],
+           scaffold = "ScOZjSD_2657", center = 17640251, main = "b. Histocompatibility-2 Cluster Region")
 
 plotDivDiv(stats[,columns],
            scaffold = "ScOZjSD_3553", center = 156640611, main = "c. CD200 Region")

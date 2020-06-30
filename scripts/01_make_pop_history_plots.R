@@ -4,12 +4,12 @@ source("./scripts/00_utils.R")
 
 output.dir <- "./plots"
 if(!dir.exists(output.dir)) dir.create(output.dir)
-stamp <- format(Sys.time(), "/%Y%M%d_%H%M%S")
+stamp <- format(Sys.time(), "/%Y%m%d_%H%M%S")
 
 LT <- c(1:3, rep(1, 10))
-samp.names <- c("M. arv. F", "M. arv. CH", "M. arv. CZ", "Eugene",
-                "M. agr.", "M. duo.", "M. oec.", "M. bra.", "M. gla.",
-                "M. pen.", "M. cab.", "M. lus.", "M. ros.")
+# samp.names <- c("M. arv. F", "M. arv. CH", "M. arv. CZ", "Eugene",
+#                 "M. agr.", "M. duo.", "M. oec.", "M. bra.", "M. gla.",
+#                 "M. pen.", "M. cab.", "M. lus.", "M. ros.")
 samp.names <- c("M. arvalis W","M. arvalis I","M. arvalis E","M. arvalis C",
                 "M. agrestis","M. duodecimcostatus","M. oeconomus","M. brandti","M. glareolus",
                 "M. pennsylvanicus","M. cabrerae","M. lusitanicus","M. levis")
@@ -17,11 +17,12 @@ samp.names <- c("M. arvalis W","M. arvalis I","M. arvalis E","M. arvalis C",
 span.loess <- 0.01
 
 vole.col <- c(rep("#228B22", 4), RColorBrewer::brewer.pal(9, "Set1"))
+vole.col[c(2,3,1,4,11)] <- RColorBrewer::brewer.pal(5, "Paired")
 
 
 divs <- res[, grep("pi", colnames(res))]
 
-pdf(file = paste0(output.dir, stamp, "_History.pdf"), width = 10, height = 10)
+pdf(file = paste0(output.dir, stamp, "_History_v2.pdf"), width = 10, height = 7.5)
 
 layout(matrix(c(1,2,3,3), ncol=2))
 par(xpd=FALSE)
@@ -39,7 +40,7 @@ files <- l.f[grep("Mar|Mcab", l.f)]
 
 pp <- lapply(files, psmc.result, s=100, g=0.5, mu=0.8e-8)
 pp <- lapply(pp, function(x) {x[,2] <- x[,2]/1e4; return(x)})
-couls <- c("#228B22","chartreuse1","chartreuse2","lightgreen","#984EA3")
+couls <- RColorBrewer::brewer.pal(5, "Paired")
 LTI <- c(1,1,1,1,1)
 plot(pp[[1]], type = "s", main = "", log = c("x"), lwd = 2,lty=LTI[1],col=couls[1],
      ylim = c(0, 65), bty = "l", xlim = c(1e3, 1.5e6),

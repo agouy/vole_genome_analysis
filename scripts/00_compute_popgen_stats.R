@@ -1,39 +1,38 @@
-### Computing popgen stats fromn VCF file
+### Computing popgen stats from VCF file
 
 library(PopGenome)
+vcf.fn <- "C:/gouy/data/voles/13V-22sc-Di-Nomiss-GT.vcf.gz"
 
-vcf.fn <- "/home/gouy/res/13V-22sc-Di-Nomiss-GT.vcf.gz"
-gff.fn <- "/home/gouy/vole-genome/data/gff/VoleCDS.gff"
-
-getRND <- function(data, outgroup = 9) {
+getRNDsp <- function(data) {
   
-  col.ids.dxy <- grep(pattern = "dxy.pop", colnames(data))
-  col.ids.dxy.out <- c(
-    grep(pattern = "dxy.pop9.pop", colnames(data)),
-    grep(pattern = "dxy.pop[0-9]{1,2}.pop9$", colnames(data))
-  )
+  dxys <- data[, grep("dxy", colnames(data))]
+  av.dxys <- colMeans(dxys, na.rm = TRUE)
+  myod <- dxys[, grep("pop9", colnames(dxys))]
   
-  rnd <- sapply(colnames(data)[col.ids.dxy[!col.ids.dxy %in% col.ids.dxy.out]], function(i) {
-    nums <- as.numeric(unlist(strsplit(gsub("dxy.pop", "", i), ".pop")))
+  dspec <- list()
+  for(i in as.character(1:13)[-9]) {
+    popu <- i
+    combs <- do.call("rbind", strsplit(gsub("dxy.pop", "", names(av.dxys)), ".pop")) 
+    ids <- apply(combs, 1, function(x) {
+      any(x == popu)
+    })
+    dao <- names(which.max(av.dxys[ids]))
+    dab <- names(which.min(av.dxys[ids]))
     
-    col.xy <- c(
-      paste0("dxy.", paste0("pop", nums, collapse=".")),
-      paste0("dxy.", paste0("pop", rev(nums), collapse="."))
-    )
-    col.out <- c(
-      paste0("dxy.", paste0("pop", c(nums[1], 9), collapse=".")),
-      paste0("dxy.", paste0("pop", rev(c(nums[1], 9)), collapse=".")),
-      paste0("dxy.", paste0("pop", c(nums[2], 9), collapse=".")),
-      paste0("dxy.", paste0("pop", rev(c(nums[2], 9)), collapse="."))    
-    )
+    n.dbo <- unlist(strsplit(gsub("dxy.pop", "", c(dao, dab)), ".pop"))
+    n.dbo <- n.dbo[n.dbo != popu]
+    dbo <- c(paste0("dxy.pop", n.dbo[1], ".pop", n.dbo[2]),
+             paste0("dxy.pop", n.dbo[2], ".pop", n.dbo[1]))
     
-    dout <- rowMeans(data[, colnames(data) %in% col.out])
-    dxy <- data[, colnames(data) %in% col.xy]
-    rnd <- dxy / dout
-    return(rnd)
-  })
-  colnames(rnd) <- gsub("dxy", "rnd", colnames(rnd))
-  return(rnd)
+    da <- (dxys[, dab] + dxys[, dao] - dxys[, colnames(dxys) %in% dbo]) / 2
+    dspec[[i]] <- da
+  }
+  names(dspec) <- paste0("rndsp.", names(dspec))
+  
+  d.av.myo <- rowMeans(myod)
+  rndsps <- lapply(dspec, function(x) {x / d.av.myo})
+  
+  return(rndsps)
 }
 
 
@@ -63,7 +62,7 @@ pops <- list(
   c("MroFl38")
 )
 
-sclength <- read.table("/home/gouy/vole-genome/data/scaff_len.txt",
+sclength <- read.table("./data/vol_scaff_len.txt",
                        sep = ",", header = FALSE)
 sclength <- sclength[order(sclength[,2], decreasing=TRUE),][1:22,]
 rownames(sclength) <- sclength[, 1]
@@ -73,8 +72,8 @@ sclength[sc.list,]
 res <- list()
 
 for(scaff in as.character(sc.list)) {
-  print(scaff)
-  
+  message(scaff)
+    
   GENOME <- readVCF(
     vcf.fn,
     numcols = 1e5, # SNP-chunk size
@@ -82,17 +81,15 @@ for(scaff in as.character(sc.list)) {
     topos = sclength[scaff, 2],
     tid = scaff, # chromosome id
     approx = FALSE, # if true, 0/1 and 1/0 go to 1
-    # gffpath = gff.fn ,
     samplenames = sample.names
   )
+  
   GENOME <- set.populations(GENOME, pops, diploid = TRUE)
   win.size <- 5e4
   step <- 5e4
   slide <- sliding.window.transform(GENOME, win.size, step, type = 2)
   
-  # Statistics
-  # slide <- neutrality.stats(slide, FAST = TRUE)
-  slide <- F_ST.stats(slide, mode = "nucleotide") # includes div stats within and between
+  slide <- F_ST.stats(slide, mode = "nucleotide", FAST = TRUE) # includes div stats within and between
   
   if(is.null(names(pops))) names(pops) <- seq_along((pops))
   
@@ -102,13 +99,13 @@ for(scaff in as.character(sc.list)) {
   div.between <- data.frame(t(slide@nuc.diversity.between / win.size))
   colnames(div.between) <- paste0("dxy.", colnames(div.between))
   
-  fst <- data.frame(t(slide@nuc.F_ST.pairwise))
-  colnames(fst) <- paste0("fst.", colnames(fst))
+  # fst <- data.frame(t(slide@nuc.F_ST.pairwise))
+  # colnames(fst) <- paste0("fst.", colnames(fst))
   
   pos <- do.call("rbind", strsplit(gsub(pattern = " :", "", slide@region.names), split = " - "))
   colnames(pos) <- c("st", "en")
   
-  res[[scaff]] <- data.frame(sc = scaff, pos, div.within, div.between, fst)
+  res[[scaff]] <- data.frame(sc = scaff, pos, div.within, div.between)
 }
 
 # data frame preprocessing
@@ -123,38 +120,10 @@ res$col.scaff <- as.numeric(as.factor(res$sc)) %% 2
 res$col.scaff[res$col.scaff==0] <- "grey"
 res$col.scaff[res$col.scaff==1] <- "black"
 
-dxys <- res[, grep("dxy", colnames(res))]
-rnd <- getRND(dxys)
-
-res <- cbind(res, rnd)
+RNDsp <- getRNDsp(res)
 
 # branch specific value
-av.rnd <- colMeans(rnd, na.rm = TRUE)
+res <- cbind(res, RNDsp)
 
-dspec <- list()
-for(i in as.character(1:13)[-9]) {
-  popu <- i
-  combs <- do.call("rbind", strsplit(gsub("dxy.pop", "", names(av.dxys)), ".pop")) 
-  ids <- apply(combs, 1, function(x) {
-    any(x == popu)
-  })
-  dao <- names(which.max(av.dxys[ids]))
-  dab <- names(which.min(av.dxys[ids]))
-  
-  n.dbo <- unlist(strsplit(gsub("dxy.pop", "", c(dao, dab)), ".pop"))
-  n.dbo <- n.dbo[n.dbo != popu]
-  dbo <- c(paste0("dxy.pop", n.dbo[1], ".pop", n.dbo[2]),
-           paste0("dxy.pop", n.dbo[2], ".pop", n.dbo[1]))
-  
-  da <- (dxys[, dab] + dxys[, dao] - dxys[, colnames(dxys) %in% dbo]) / 2
-  dspec[[i]] <- da
-}
-names(dspec) <- paste0("dsp.", names(dspec))
-
-d.av.myo <- rowMeans(myod)
-rndsps <- lapply(dspec, function(x) {x / d.av.myo})
-
-res <- cbind(res, data.frame(dspec))
-
-save(res, file="/home/gouy/vole-genome/13V-22sc-Di-Nomiss-GT.rda")
+save(res, file="/home/gouy/vole-genome/13V-22sc-Di-Nomiss-GT-v2.rda")
 

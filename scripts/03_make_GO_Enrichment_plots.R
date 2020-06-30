@@ -10,8 +10,15 @@ source("./scripts/00_utils.R")
 
 output.dir <- "./plots"
 if(!dir.exists(output.dir)) dir.create(output.dir)
-stamp <- format(Sys.time(), "/%Y%M%d_%H%M%S")
+stamp <- format(Sys.time(), "/%Y%m%d_%H%M%S")
 
+samp.names <- c("M. arvalis W","M. arvalis I","M. arvalis E","M. arvalis C",
+                "M. agrestis","M. duodecimcostatus","M. oeconomus","M. brandti","M. glareolus",
+                "M. pennsylvanicus","M. cabrerae","M. lusitanicus","M. levis")
+
+load("./data/annotation.rda")
+load("./data/pi_rndsp.rda")
+rndsps <- stats[, grep("rndsp", colnames(stats))]
 
 if(run.GO) {
   ### Load annotation
@@ -46,7 +53,7 @@ if(run.GO) {
   ### Load divergence measures
   load("./data/13V-22sc-Di-Nomiss-GT.rda")
   dspec <- list()
-  dxys <- res[, grep("dxy", colnames(res))]
+  dxys <- stats[, grep("dxy", colnames(stats))]
   av.dxys <- colMeans(dxys, na.rm = TRUE)
   
   myod <- dxys[, grep("pop9", colnames(dxys))]
@@ -95,8 +102,8 @@ if(run.GO) {
     print(i)
     eval(parse(text=paste0("YY <- rndsps[[", i, "]]")))
     YY[cond] <- NA
-    GL <- unique(getGeneList(unlist(unname(c(YY))), res, annot.gr, quant = 0.99))
-    # GL <- unique(getGeneList2(unlist(unname(c(YY))), res, annot.gr))
+    GL <- unique(getGeneList(unlist(unname(c(YY))), stats, annot.gr, quant = 0.99))
+    # GL <- unique(getGeneList2(unlist(unname(c(YY))), stats, annot.gr))
     ddf <- data.frame(gene = GL)
     mapped <- string_db$map(ddf, "gene")
     hits <- mapped$STRING_id
@@ -121,17 +128,18 @@ go.id <- (unlist(lapply(tab, function(x) x[, "term"])))
 go.size <- (unlist(lapply(tab, function(x) x[, "number_of_genes_in_background"])))
 
 go.size <- go.size[!duplicated(go.id)]
+names(go.size) <- uniq.name
 go.id <- go.id[!duplicated(go.id)]
+names(go.id) <- uniq.name
 
-df <- matrix(NA,ncol=length(tab),nrow=length(uniq.name))
+df <- matrix(NA,ncol=length(tab), nrow=length(uniq.name))
 rownames(df) <- uniq.name
-pvs <- matrix(NA,ncol=length(tab),nrow=length(uniq.name))
+pvs <- matrix(NA,ncol=length(tab), nrow=length(uniq.name))
 rownames(pvs) <- uniq.name
-hts <- matrix(NA,ncol=length(tab),nrow=length(uniq.name))
+hts <- matrix(NA,ncol=length(tab), nrow=length(uniq.name))
 rownames(hts) <- uniq.name
-g.names <- matrix(NA,ncol=length(tab),nrow=length(uniq.name))
+g.names <- matrix(NA, ncol=length(tab), nrow=length(uniq.name))
 rownames(g.names) <- uniq.name
-
 sizes <- matrix(NA,ncol=length(tab),nrow=length(uniq.name))
 rownames(sizes) <- uniq.name
 
@@ -140,6 +148,7 @@ for(i in 1:12) {
   pvs[tab[[i]]$description, i] <- tab[[i]]$fdr
   hts[tab[[i]]$description, i] <- tab[[i]]$number_of_genes
   g.names[tab[[i]]$description, i] <- tab[[i]]$preferredNames
+  sizes[tab[[i]]$description, i] <- tab[[i]]$number_of_genes_in_background
 }
 
 
@@ -149,27 +158,32 @@ shared.genes <- apply(g.names, 1, function(x) {
   return(c(shared))
 })
 
-tot.g <- tab[[i]]$number_of_genes_in_background
-shar.g <- lengths(shared.genes[tab[[i]]$description])
-uniq.g <- lapply(shared.genes[tab[[i]]$description], function(x) sum(x==1))
+tot.g <- apply(sizes, 1, function(x) x[!is.na(x)][1])
+shar.g <- lengths(shared.genes)
+uniq.g <- lapply(shared.genes, function(x) sum(x==1))
 GO.labels <- paste0("(", uniq.g, "|", shar.g, "|", tot.g, ")")
+names(GO.labels) <- names(shared.genes)
 
+library(Hmisc)
+df <- df[names(GO.labels), ]
+rownames(df) <- capitalize(paste(rownames(df), GO.labels))
+go.size <- go.size[names(GO.labels)]
+go.id <- go.id[names(GO.labels)]
 
 shared.genes <- unlist(unname(shared.genes))
 
 shared.genes <- shared.genes[!duplicated(names(shared.genes))]
 
 uniq.name <- names(shared.genes)
-pis <- res[, grep("pi", colnames(res))]
+pis <- stats[, grep("pi", colnames(stats))]
 tab <- list()
 for(i in 1:12) {
   x <- rndsps[[i]]
-  x[cond] <- NA
-  # getGeneList(x, res, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99)
-  # getGeneList(x, res, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99)
-  pi.out <- getGeneDiv(rndsps[[i]], res, annot.gr[annot.gr$name %in% uniq.name,], quanti = 0.99, 1)
+  # getGeneList(x, stats, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99)
+  # getGeneList(x, stats, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99)
+  pi.out <- getGeneDiv(rndsps[[i]], stats, annot.gr[annot.gr$name %in% uniq.name,], quanti = 0.99, 1)
   
-  # pi.out <- getGeneDiv(rndsps[[i]], res, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99, 1)
+  # pi.out <- getGeneDiv(rndsps[[i]], stats, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99, 1)
   qt.pi <- colMeans(sapply(pi.out, ">", pis[,i]))
   tab[[i]] <- qt.pi[!is.na(qt.pi)]
 }
@@ -177,13 +191,8 @@ div.quantiles <- matrix(NA, ncol=length(tab), nrow=length(uniq.name))
 rownames(div.quantiles) <- uniq.name
 for(i in 1:12) div.quantiles[names(tab[[i]]), i] <- tab[[i]]
 
-# 
-
-
-library(Hmisc)
-rownames(df) <- capitalize(paste(rownames(df), GO.labels))
-
-df2 <- df[unname(go.size >= 5 & go.size < 1500), ]
+# df2 <- df[unname(go.size >= 5 & go.size < 1500), ]
+df2 <- df[unname(go.size >= 2 & go.size < 1500), ]
 df2[!is.na(df2)] <- 1
 df2[is.na(df2)] <- 0
 df3 <- apply(df2, 2, as.numeric)
@@ -197,9 +206,7 @@ ind.ord <- c(4,1,2,3,12,6,11,10,5,7,8,9)
 pvs <- pvs[condi, ][p.ord, ][, ind.ord]
 hts <- hts[condi, ][p.ord, ][, ind.ord]
 
-
 df3 <- apply(df3, 2, "*", 1:nrow(df3))
-
 
 df3[df3 == 0] <- NA
 df3 <- df3[, ind.ord]
@@ -207,56 +214,73 @@ df3 <- df3[, ind.ord]
 col.sc <- (-log10(pvs) + 20) / max(-log10(pvs) + 20, na.rm = TRUE)
 cx.sc <- 2 * log10(hts + 1) / max(log10(hts + 1), na.rm = TRUE)
 
+getPalette = colorRampPalette(RColorBrewer::brewer.pal(9, "YlGnBu"))
+mapCol <- function(y, n = 100, mini = 0, maxi = 1) {
+  getPalette(n)[as.numeric(cut(y[!is.na(y)], breaks = seq(mini, maxi, length.out = n)))]
+}
+
 ### Make the plot
-pdf(file = paste0(output.dir, stamp, "_GO_Enrichment.pdf"), width = 9, height = 7)
+pdf(file = paste0(output.dir, stamp, "_GO_Enrichment_v2.pdf"), width = 9, height = 8)
 
-layout(matrix(c(1,1,1,1,2,3), nrow=2))
-
-par(mar=c(7,25,0,3), oma=c(1,1,3,0), mgp=c(3, 1, 0))
+par(mar=c(5,30,1,1), oma=c(1,1,3,0), mgp=c(3, 1, 0), mfrow=c(1,1))
 plot(NA, xlim = c(1, ncol(df3) + 2), ylim = c(1, nrow(df3)), bty = "n", xaxt = "n", yaxt = "n", xlab = "", ylab = "")
 segments(1, 1:nrow(df3), 12, 1:nrow(df3), col = rgb(.9,.9,.9))
 segments(1:12, 1, 1:12, nrow(df3), col = rgb(.95,.95,.95))
 
-couleurs <- rgb(0, 0.192, 0.325, col.sc[,i][!is.na(col.sc[,i])]) # prussian blue
 for(i in 1:12) {
+  y <- t(df3[,i])[!is.na(t(df3[,i]))]
   points(
-    rep(i, sum(!is.na(t(df3[,i])))), t(df3[,i])[!is.na(t(df3[,i]))], 
+    rep(i, sum(!is.na(t(df3[,i])))), y, 
     pch = 16, 
     cex = cx.sc[,i][!is.na(cx.sc[,i])],
-    col = couleurs
+    col = mapCol(col.sc[,i], n = 100, mini = 0.2, maxi = max(col.sc, na.rm = TRUE))
   )
 }
 axis(1, at = 1:ncol(df3), labels = FALSE, lwd = 0, las = 2, cex.axis = 0.8)
-text(par("usr")[1]+1:ncol(df3), 0, labels = samp.names[-9][ind.ord], srt = 45, pos = 2, xpd = TRUE)
-
+text(par("usr")[1]+1:ncol(df3), 0, labels = samp.names[-9][ind.ord], srt = 45, pos = 2, xpd = TRUE, cex = 0.8)
 axis(2, at = 1:nrow(df3), labels = rownames(df2)[condi][p.ord], lwd = 0, las = 2, cex.axis = 0.8)
 
-Y.le <- round(0.95*max(df3, na.rm = TRUE))
-text(c(13.5), 1.1*Y.le, "Legend", font = 2, cex = 0.8)
-points(c(13,14), rep(Y.le, 2), cex = range(cx.sc[!is.na(cx.sc)]))
-text(c(13,14), rep(Y.le, 2), range(hts, na.rm = TRUE), pos = 1, cex = 0.6)
-text(c(13.5), Y.le, "# genes", pos = 3, cex = 0.8)
-sc.fac <- 0.9
-points(c(13,14), rep(sc.fac*Y.le, 2), col = rgb(0, 0.192, 0.325, range(col.sc[!is.na(col.sc)])), pch = 16)
-text(c(13,14), rep(sc.fac*Y.le, 2), round(range(-log10(pvs), na.rm = TRUE), 1), pos = 1, cex = 0.6)
-text(c(13.5), sc.fac*Y.le, expression(-log[10](italic(q))), pos = 3, cex = 0.8)
+### LEGEND:
+par(xpd=TRUE)
+x.cent <- -25
+n.pts <- 40
+text(x.cent, 5, "Legend", font = 2, cex = 0.8)
+aa <- range(cx.sc[!is.na(cx.sc)])
+points(seq(x.cent-1,x.cent+1, length.out = n.pts),
+       rep(3.2, n.pts),
+       cex = seq(aa[1], aa[2], length.out = n.pts),
+       pch = 16)
+text(c(x.cent-2,x.cent+2), rep(3.2, 2), range(hts, na.rm = TRUE), cex = 0.7)
+text(x.cent, 3.5, "Outlier genes", pos = 3, cex = 0.8)
 
-title("a. Gene Ontology terms enriched in divergent loci", adj = 0, cex.main = 0.9, outer = TRUE)
+points(seq(x.cent-1, x.cent+1, length.out = n.pts), rep(1.2, n.pts),
+       col = getPalette(n.pts),
+       pch = 15, cex = 1.5)
 
-par(mar=c(7,4,2,4))
-hist(shared.genes, main = "",cex.axis = 0.9,
-     xlab = "Number of species",  ylab = "Count",
-     border = FALSE)
-
-title("b. Genes occurence in different lineages", adj = 0., cex.main = 0.9)
-
-hist(div.quantiles, main = "",cex.axis = 0.9, 
-     xlab = "Nucleotide diversity quantile", ylab = "Count",
-     border = FALSE)
-title("c. Diversity distribution of divergent genes", adj = 0., cex.main = 0.9)
-
+text(c(x.cent-2, x.cent+2), rep(1.2, 2), c(0.05, expression(10^-31)), cex = 0.7)
+text(x.cent, 1.4, "q-value", pos = 3, cex = 0.8)
+polygon(c(x.cent-4, x.cent-4, x.cent+4, x.cent+4), c(0,6,6,0), border = "slategrey")
+title("Gene Ontology terms enriched in divergent loci", adj = 0.6, cex.main = 1, outer = TRUE)
 
 dev.off()
+
+# pdf(file = paste0(output.dir, stamp, "_GO_Enrichment_Supp1.pdf"), width = 5, height = 7)
+
+### Supp figure
+# par(mfrow=c(2,1), mar=c(7,4,2,4))
+# hist(shared.genes, main = "", cex.axis = 0.9,
+#      xlab = "Number of species",  ylab = "Count",
+#      border = FALSE)
+# 
+# title("a. Genes occurence in different lineages", adj = 0., cex.main = 0.9)
+# 
+# hist(div.quantiles, main = "", cex.axis = 0.9, 
+#      xlab = "Nucleotide diversity quantile", ylab = "Count",
+#      border = FALSE)
+# title("b. Diversity distribution of divergent genes", adj = 0., cex.main = 0.9)
+# 
+# 
+# dev.off()
 
 ### Write results as a CSV table
 
