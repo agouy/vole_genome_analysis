@@ -26,7 +26,11 @@ df <- matrix(NA, ncol=length(tab), nrow=length(uniq.name))
 rownames(df) <- uniq.name
 for(i in 1:12) df[names(tab[[i]]), i] <- tab[[i]]
 
-p.ord <- order(rowSums(!is.na(df)), decreasing = TRUE)
+# v1: order based on clustering
+# p.ord <- order(rowSums(!is.na(df)), decreasing = TRUE)
+# v2: alphabetical
+p.ord <- order(rownames(df))
+
 ind.ord <- c(4,1,2,3,12,6,11,10,5,7,8,9)
 df <- df[p.ord, ][, ind.ord]
 
@@ -36,7 +40,7 @@ output.dir <- "./plots"
 if(!dir.exists(output.dir)) dir.create(output.dir)
 stamp <- format(Sys.time(), "/%Y%m%d_%H%M%S")
 
-pdf(file = paste0(output.dir, stamp, "_Outlier_diversity.pdf"), width = 9.2, height = 7)
+pdf(file = paste0(output.dir, stamp, "_Outlier_diversity_v2.pdf"), width = 9.2, height = 7)
 
 layout(matrix(c(1,2)))
 
@@ -49,7 +53,7 @@ for(i in 1:12) {
   points(
     which(!is.na(y)), rep(i, sum(!is.na(y))),
     pch = 15, cex = 1.5,
-    col = getPalette(100)[as.numeric(cut(y[!is.na(y)],breaks = seq(0,1,length.out = 100)))]
+    col = getPalette(100)[as.numeric(cut(y[!is.na(y)],breaks = seq(-0.0001, 1.0001, length.out = 100)))]
   )
 }
 axis(2, at = 1:ncol(df),
@@ -74,7 +78,10 @@ df <- matrix(NA, ncol=length(tab), nrow=length(uniq.name))
 rownames(df) <- uniq.name
 for(i in 1:12) df[names(tab[[i]]), i] <- tab[[i]]
 
-p.ord <- order(rowSums(!is.na(df)), decreasing = TRUE)
+# v1: order based on clustering
+# p.ord <- order(rowSums(!is.na(df)), decreasing = TRUE)
+# v2: alphabetical
+p.ord <- order(rownames(df))
 ind.ord <- c(4,1,2,3,12,6,11,10,5,7,8,9)
 df <- df[p.ord, ][, ind.ord]
 
@@ -82,14 +89,14 @@ df <- df[p.ord, ][, ind.ord]
 
 # par(mar=c(4,6,1,2), oma=c(1,1,1,1))
 plot(NA, xlim = c(1, nrow(df)), ylim = c(1, ncol(df) + 2), bty = "n", xaxt = "n", yaxt = "n", xlab = "", ylab = "")
-segments(1:nrow(df), 1, 1:nrow(df), 12, col = rgb(.9,.9,.9))
-segments(1, 1:12, nrow(df), 1:12, col = rgb(.95,.95,.95))
+segments(1:nrow(df), 1, 1:nrow(df), 12, col = rgb(.9, .9, .9))
+segments(1, 1:12, nrow(df), 1:12, col = rgb(.95, .95, .95))
 for(i in 1:12) {
   y <- df[, i]
   points(
     which(!is.na(y)), rep(i, sum(!is.na(y))),
     pch = 15, cex = 1.5,
-    col = getPalette(100)[as.numeric(cut(y[!is.na(y)],breaks = seq(0,1,length.out = 100)))]
+    col = getPalette(100)[as.numeric(cut(y[!is.na(y)], breaks = seq(-0.0001, 1.0001, length.out = 100)))]
   )
 }
 axis(2, at = 1:ncol(df),
