@@ -22,7 +22,8 @@ vole.col[c(2,3,1,4,11)] <- RColorBrewer::brewer.pal(5, "Paired")
 
 divs <- res[, grep("pi", colnames(res))]
 
-pdf(file = paste0(output.dir, stamp, "_History_v2.pdf"), width = 10, height = 7.5)
+# pdf(file = paste0(output.dir, stamp, "_History_v2.pdf"), width = 10, height = 7.5)
+png(file = paste0(output.dir, stamp, "_History_v3.png"), width = 10, height = 7.5, res = 600, units = "in")
 
 layout(matrix(c(1,2,3,3), ncol=2))
 par(xpd=FALSE)
@@ -72,11 +73,11 @@ tree$node.labels <- raxml@data$bootstrap
 
 par(mar = c(4,1,4,1))
 plot(tree, label.offset = .005, type="phylogram",
-     show.node.label = F,
+     show.node.label = F, cex = 1.,
      align.tip.label = F, font = 2, edge.width = 2, edge.col = "slategrey")
 
 tiplabels(pch = 16, col = "slategrey")
-nodelabels(text = raxml@data$bootstrap, cex = .6, bg = "white",
+nodelabels(text = raxml@data$bootstrap, cex = .8, bg = "white",
            adj = c(1.2, 1.2), frame = "n", font = 2)
 axisPhylo(backward = FALSE, lwd = 2, col = "slategrey")
 title("c. Maximum likelihood phylogenetic tree", adj = 0)
@@ -86,21 +87,21 @@ dev.off()
 
 # 
 # 
-par(mfrow=c(2,2))
-plot(tree, label.offset = .005,type="fan",
-     show.node.label = F,
-     align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
-plot(tree, label.offset = .005,type="radial",
-     show.node.label = F,
-     align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
-plot(tree, label.offset = .005,type="phylogram",
-     show.node.label = F,
-     align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
-plot(tree, label.offset = .005,type="unrooted",
-     show.node.label = F,
-     align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
-
+# par(mfrow=c(2,2))
+# plot(tree, label.offset = .005,type="fan",
+#      show.node.label = F,
+#      align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
+# plot(tree, label.offset = .005,type="radial",
+#      show.node.label = F,
+#      align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
+# plot(tree, label.offset = .005,type="phylogram",
+#      show.node.label = F,
+#      align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
+# plot(tree, label.offset = .005,type="unrooted",
+#      show.node.label = F,
+#      align.tip.label = F, font=2, edge.width=2, edge.col="slategrey")
 # 
+# # 
 # 
 # ### PSMC plot
 # 
