@@ -40,7 +40,8 @@ output.dir <- "./plots"
 if(!dir.exists(output.dir)) dir.create(output.dir)
 stamp <- format(Sys.time(), "/%Y%m%d_%H%M%S")
 
-pdf(file = paste0(output.dir, stamp, "_Outlier_diversity_v2.pdf"), width = 9.2, height = 7)
+# pdf(file = paste0(output.dir, stamp, "_Outlier_diversity_v2.pdf"), width = 9.2, height = 7)
+png(file = paste0(output.dir, stamp, "_Outlier_diversity_v2.png"), width = 9.2, height = 7, res = 600, units = "in")
 
 layout(matrix(c(1,2)))
 
