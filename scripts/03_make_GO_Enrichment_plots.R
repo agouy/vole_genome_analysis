@@ -93,7 +93,7 @@ if(run.GO) {
     string_db$set_background(bg$STRING_id)
     save(string_db, file = "./data/string_db.rda")
   } else {
-    load(string_db, file = "./data/string_db.rda")
+    load(file = "./data/string_db.rda")
   }
   
   # perform GO test
@@ -158,6 +158,17 @@ shared.genes <- apply(g.names, 1, function(x) {
   return(c(shared))
 })
 
+vc <- 1:length(shared.genes)
+mat <- matrix(NA, ncol = length(vc), nrow = length(vc))
+rownames(mat) <- colnames(mat) <- names(shared.genes)
+for(i in vc){
+  for(j in vc){
+    a <- names(shared.genes[[i]])
+    b <- names(shared.genes[[j]])
+    mat[i, j] <- length(intersect(a,b))/length(union(a, b))
+  }
+}
+
 tot.g <- apply(sizes, 1, function(x) x[!is.na(x)][1])
 shar.g <- lengths(shared.genes)
 uniq.g <- lapply(shared.genes, function(x) sum(x==1))
@@ -166,6 +177,7 @@ names(GO.labels) <- names(shared.genes)
 
 library(Hmisc)
 df <- df[names(GO.labels), ]
+old.names <- rownames(df)
 rownames(df) <- capitalize(paste(rownames(df), GO.labels))
 go.size <- go.size[names(GO.labels)]
 go.id <- go.id[names(GO.labels)]
@@ -199,7 +211,12 @@ df3 <- apply(df2, 2, as.numeric)
 
 condi <- colSums(apply(df3, 1, "==", 0)) < 11
 df3 <- df3[condi, ]
-p.ord <- hclust(dist(df3))$order
+# p.ord <- hclust(dist(df3))$order
+
+old.names <- old.names[unname(go.size >= 2 & go.size < 1500)][condi][p.ord]
+hc <- hclust(1-as.dist(mat[old.names, old.names]))
+p.ord <- hc$order
+
 df3 <- df3[p.ord, ]
 ind.ord <- c(4,1,2,3,12,6,11,10,5,7,8,9)
 
@@ -220,9 +237,18 @@ mapCol <- function(y, n = 100, mini = 0, maxi = 1) {
 }
 
 ### Make the plot
-pdf(file = paste0(output.dir, stamp, "_GO_Enrichment_v2.pdf"), width = 9, height = 8)
+# pdf(file = paste0(output.dir, stamp, "_GO_Enrichment_v2.pdf"), width = 9, height = 8)
+png(file = paste0(output.dir, stamp, "_GO_Enrichment_v3.png"), width = 7, height = 7, res = 600, units = "in")
+layout(matrix(c(1,2,2,2,2), nrow=1))
 
-par(mar=c(5,30,1,1), oma=c(1,1,3,0), mgp=c(3, 1, 0), mfrow=c(1,1))
+par(mar=c(2,0,5,1), oma=c(2,1,2,0), mgp=c(1, 1, 0))
+hcd <- as.dendrogram(hc)
+plot(hcd, edgePar = list(lwd = 2, col = "slategrey"), yaxt = "n",
+     ann = FALSE, leaflab = "none", horiz = TRUE, ylab = "Jaccard's distance", cex.lab = 0.8, cex.axis = 0.8)
+axis(1, pretty(seq(0,1,0.01)),pos = 0.2)
+text(0.5,-1.5, "Jaccard's distance", xpd=TRUE)
+
+par(mar=c(3,0,6,22))
 plot(NA, xlim = c(1, ncol(df3) + 2), ylim = c(1, nrow(df3)), bty = "n", xaxt = "n", yaxt = "n", xlab = "", ylab = "")
 segments(1, 1:nrow(df3), 12, 1:nrow(df3), col = rgb(.9,.9,.9))
 segments(1:12, 1, 1:12, nrow(df3), col = rgb(.95,.95,.95))
@@ -236,33 +262,41 @@ for(i in 1:12) {
     col = mapCol(col.sc[,i], n = 100, mini = 0.2, maxi = max(col.sc, na.rm = TRUE))
   )
 }
-axis(1, at = 1:ncol(df3), labels = FALSE, lwd = 0, las = 2, cex.axis = 0.8)
-text(par("usr")[1]+1:ncol(df3), 0, labels = samp.names[-9][ind.ord], srt = 45, pos = 2, xpd = TRUE, cex = 0.8)
-axis(2, at = 1:nrow(df3), labels = rownames(df2)[condi][p.ord], lwd = 0, las = 2, cex.axis = 0.8)
+# axis(3, at = 1:ncol(df3), labels = FALSE, lwd = 0, las = 2, cex.axis = 0.8)
+text(par("usr")[1] + 1:ncol(df3) - 1, par("usr")[4], labels = samp.names[-9][ind.ord], srt = 60, pos = 4, xpd = TRUE, cex = 0.8)
+text(ncol(df3)+1,1:nrow(df3), labels = rownames(df2)[condi][p.ord], pos = 4, xpd = TRUE, cex = 0.8)
+title("Gene Ontology terms enriched in divergent loci", adj = 0.4, cex.main = 1, outer = TRUE)
+
+# axis(4, at = 1:nrow(df3), labels = rownames(df2)[condi][p.ord], lwd = 0, las = 2, cex.axis = 0.8)
 
 ### LEGEND:
 par(xpd=TRUE)
-x.cent <- -25
+x.cent <- 27
+y.cent <- 6
 n.pts <- 40
-text(x.cent, 5, "Legend", font = 2, cex = 0.8)
+text(x.cent, y.cent+1.8, "Legend", font = 2, cex = 0.8)
 aa <- range(cx.sc[!is.na(cx.sc)])
 points(seq(x.cent-1,x.cent+1, length.out = n.pts),
-       rep(3.2, n.pts),
+       rep(y.cent, n.pts),
        cex = seq(aa[1], aa[2], length.out = n.pts),
        pch = 16)
-text(c(x.cent-2,x.cent+2), rep(3.2, 2), range(hts, na.rm = TRUE), cex = 0.7)
-text(x.cent, 3.5, "Outlier genes", pos = 3, cex = 0.8)
+text(c(x.cent-2,x.cent+2), rep(y.cent, 2), range(hts, na.rm = TRUE), cex = 0.7)
+text(x.cent, y.cent+0.3, "Outlier genes", pos = 3, cex = 0.8)
 
-points(seq(x.cent-1, x.cent+1, length.out = n.pts), rep(1.2, n.pts),
+points(seq(x.cent-1, x.cent+1, length.out = n.pts), rep(y.cent-2, n.pts),
        col = getPalette(n.pts),
        pch = 15, cex = 1.5)
 
-text(c(x.cent-2, x.cent+2), rep(1.2, 2), c(0.05, expression(10^-31)), cex = 0.7)
-text(x.cent, 1.4, "q-value", pos = 3, cex = 0.8)
-polygon(c(x.cent-4, x.cent-4, x.cent+4, x.cent+4), c(0,6,6,0), border = "slategrey")
-title("Gene Ontology terms enriched in divergent loci", adj = 0.6, cex.main = 1, outer = TRUE)
+text(c(x.cent-2, x.cent+2), rep(y.cent-2, 2), c(0.05, expression(10^-31)), cex = 0.7)
+text(x.cent, y.cent-1.8, "q-value", pos = 3, cex = 0.8)
+polygon(c(x.cent-3, x.cent-3, x.cent+3, x.cent+3), c(y.cent-2.5,y.cent+2.5,y.cent+2.5,y.cent-2.5), border = "slategrey")
 
 dev.off()
+
+
+### get overlap bw go terms
+
+df
 
 # pdf(file = paste0(output.dir, stamp, "_GO_Enrichment_Supp1.pdf"), width = 5, height = 7)
 
