@@ -198,7 +198,7 @@ for(i in 1:12) {
   # pi.out <- getGeneDiv(rndsps[[i]], stats, annot.gr[c(grep("Olf", annot.gr$name), grep("Vmn", annot.gr$name)),], quanti = 0.99, 1)
   qt.pi <- colMeans(sapply(pi.out, ">", pis[,i]))
   tab[[i]] <- qt.pi[!is.na(qt.pi)]
-}
+} 
 div.quantiles <- matrix(NA, ncol=length(tab), nrow=length(uniq.name))
 rownames(div.quantiles) <- uniq.name
 for(i in 1:12) div.quantiles[names(tab[[i]]), i] <- tab[[i]]
