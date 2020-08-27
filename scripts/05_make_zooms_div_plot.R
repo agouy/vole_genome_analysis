@@ -79,7 +79,7 @@ plotDivDiv <- function(stats = stats, scaffold = "ScOZjSD_3553", center = 305333
   ov <- ov[lengths(ov) > 1e3]
   par(xpd=TRUE)
   segments(start(ov)/1e6, min(as.val), end(ov)/1e6, min(as.val), lwd = 2, col = "slategrey")
-  text((start(ov)+end(ov))/2/1e6, 1.02*min(as.val), ov$name, pos=2, cex = 0.9, srt=90, offset = c(0,-0.))
+  text((start(ov)+end(ov))/2/1e6, 1.02*min(as.val), ov$name, pos=2, cex = 0.7, srt=90, offset = c(0,-0.))
   par(xpd=FALSE)
   
   if(leg) {
@@ -95,8 +95,8 @@ output.dir <- "./plots"
 if(!dir.exists(output.dir)) dir.create(output.dir)
 stamp <- format(Sys.time(), "/%Y%m%d_%H%M%S")
 
-# pdf(file = paste0(output.dir, stamp, "_Zooms_v2.pdf"), width = 10, height = 5)
-png(file = paste0(output.dir, stamp, "_Zooms_v3.png"), width = 9, height = 7, res = 600, units = "in")
+pdf(file = paste0(output.dir, stamp, "_Zooms_v3.pdf"), width = 9, height = 7)
+# png(file = paste0(output.dir, stamp, "_Zooms_v3.png"), width = 9, height = 7, res = 600, units = "in")
 layout(matrix(c(1,2,5,6,3,4,7,8), nrow = 4))
 
 species <- c(1:4, 11)
