@@ -107,16 +107,16 @@ dev.off()
 # 
 # ### SUPPLEMENTARY: DIVERSITY DISTRIBUTION
 # 
-# # par(mfrow=c(1, 2), mar = c(4,6,4,4))
-# plot(density(log10(res$pi.1+1e-5)), col = vole.col[1], lwd = 1, ylim = c(0,2.2),
-#      main = "", lty = LT[1], xlim = c(-5.5,-1.5),
-#      xlab = expression(log[10](pi + 10^-5)), bty = "L")
+# par(mfrow=c(1, 2), mar = c(4,6,4,4))
+plot(density(log10(divs$pi.1+1e-5)), col = vole.col[1], lwd = 1, ylim = c(0,2.2),
+     main = "", lty = LT[1], xlim = c(-5.5,-0.5),
+     xlab = expression(log[10](pi + 10^-5)), bty = "L")
 # title("b. Nucleotide diversity distributions", adj = 0)
-# 
-# for(i in 2:13) {
-#   to.plot <- eval(parse(text=paste0("res$pi.", i)))
-#   lines(density(log10(to.plot + 1e-5)), col = vole.col[i], lwd = 1, lty = LT[i])
-# }
-# par(xpd=TRUE)
-# legend(-2, 2, samp.names, col = vole.col, lwd = 2, cex = 0.8, lty = LT)
-# par(xpd=FALSE)
+
+for(i in 2:13) {
+  to.plot <- eval(parse(text=paste0("divs$pi.", i)))
+  lines(density(log10(to.plot + 1e-5)), col = vole.col[i], lwd = 1, lty = LT[i])
+}
+par(xpd=TRUE)
+legend("topright",samp.names, col = vole.col, lwd = 2, cex = 0.8, lty = LT)
+par(xpd=FALSE)
